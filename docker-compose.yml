@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+
+  face_detection_service:
+    build: ./face_detection_service
+    ports:
+      - "8001:8000"
+
+  database_service:
+    build: ./database_service
+    ports:
+      - "8003:8000"
+    volumes:
+      - faces-db:/app/data
+
+  face_recognition_service:
+    build: ./face_recognition_service
+    ports:
+      - "8004:8000"
+
+volumes:
+  faces-db:
