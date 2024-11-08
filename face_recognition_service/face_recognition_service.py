@@ -26,7 +26,8 @@ def recognize_face(request: RecognitionRequest):
         matches = list(distances <= request.tolerance)
         matched_names = [request.known_names[i] for i, match in enumerate(matches) if match]
 
-        return {"matches": matched_names}
+        return {"matches": matches,
+                "matched_names": matched_names}
 
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid encoding or known_encodings format")

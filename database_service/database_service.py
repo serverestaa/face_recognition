@@ -24,7 +24,6 @@ def get_db():
 
 
 # Функция для кодирования лица с нормализацией
-# Функция для кодирования лица с нормализацией
 def encode_face(file_bytes: bytes):
     np_img = np.frombuffer(file_bytes, np.uint8)
     image = cv2.imdecode(np_img, cv2.IMREAD_COLOR)

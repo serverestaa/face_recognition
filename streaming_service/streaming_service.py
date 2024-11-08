@@ -81,14 +81,8 @@ async def gen_frames():
 
                         try:
                             print("Attempting face recognition")
-                            known_encodings = [
-                                np.array(face["encoding"], dtype=np.float32) / np.linalg.norm(face["encoding"]) for face
-                                in known_faces]
+                            known_encodings = [np.array(face["encoding"], dtype=np.float32) for face in known_faces]
                             known_names = [face["name"] for face in known_faces]
-
-                            # Нормализуем encoding нового лица
-                            face_encoding = np.array(face_encoding, dtype=np.float32) / np.linalg.norm(face_encoding)
-                            face_encoding = face_encoding.tolist()
                             known_encodings = [enc.tolist() for enc in known_encodings]
 
                             recognition_resp = await client.post(
@@ -100,9 +94,15 @@ async def gen_frames():
                                 }
                             )
                             recognition_resp.raise_for_status()
-                            matches = recognition_resp.json().get("matches", [])
-                            name = matches[0] if matches else "Unknown"
-                            print(f"Recognition result: {name}")
+                            response_data = recognition_resp.json()
+                            matches = response_data.get("matches", [])
+                            matched_names = response_data.get("matched_names", [])
+                            if True in matches:
+                                match_index = matches.index(True)
+                                name = matched_names[match_index]
+                                print(f"Face recognized: {name}")
+                            else:
+                                name = "Unknown"
 
                             # Отрисовка результата на кадре
                             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
