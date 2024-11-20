@@ -1,12 +1,14 @@
-import cv2
-import numpy as np
-import grpc
 from concurrent import futures
-import torch
-from torchvision import transforms
-from PIL import Image
 
-from face_recognition_service import face_pb2, face_pb2_grpc
+import cv2
+import grpc
+import numpy as np
+import torch
+from PIL import Image
+from torchvision import transforms
+
+import face_pb2
+import face_pb2_grpc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = torch.jit.load("model_scripted_EfficientNetv3_10epochs.pt", map_location=device)

@@ -1,122 +1,70 @@
-import numpy as np
 import cv2
-import asyncio
-import time
-import httpx
+import grpc
+import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
+from face_recognition_service import face_pb2, face_pb2_grpc
+
 app = FastAPI()
-DETECTION_URL = "http://localhost:8001/detect_faces/"
-ENCODING_URL = "http://localhost:8003/encode_face/"
-KNOWN_FACES_URL = "http://localhost:8003/get_known_faces/"
-RECOGNITION_URL = "http://localhost:8004/recognize_face/"
 
 
-@app.get("/video_feed/")
-async def video_feed():
-    return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
-
-
-async def gen_frames():
+def gen_frames():
     video_capture = cv2.VideoCapture(0)
-    retry_count = 0
-    max_retries = 10
+    known_faces = load_known_faces()
 
-    while not video_capture.isOpened() and retry_count < max_retries:
-        print("Attempting to open webcam... (Retry)", retry_count + 1)
-        time.sleep(1)
-        video_capture = cv2.VideoCapture(0)
-        retry_count += 1
+    try:
+        while True:
+            success, frame = video_capture.read()
+            if not success:
+                break
 
-    if not video_capture.isOpened():
-        print("Cannot open webcam after retries")
-        return
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+            detected_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        try:
-            while True:
-                ret, frame = video_capture.read()
-                if not ret or frame is None:
-                    print("Warning: No frame captured from the webcam.")
-                    await asyncio.sleep(0.1)
-                    continue
+            for (x, y, w, h) in detected_faces:
+                face_image = frame[y:y + h, x:x + w]
+                _, buffer = cv2.imencode(".jpg", face_image)
+                face_bytes = buffer.tobytes()
 
-                _, img_encoded = cv2.imencode('.jpg', frame)
-                files = {'file': img_encoded.tobytes()}
+                with grpc.insecure_channel("localhost:50051") as channel:
+                    stub = face_pb2_grpc.FaceRecognitionStub(channel)
+                    request = face_pb2.EncodeFaceRequest(image=face_bytes)
 
-                try:
-                    print("Attempting face detection")
-                    detect_response = await client.post(DETECTION_URL, files=files)
-                    detect_response.raise_for_status()
-                    faces = detect_response.json().get("faces", [])
-                    print(f"Faces detected: {len(faces)}")
-                except Exception as e:
-                    print(f"Face detection error: {e}")
-                    continue
+                    try:
+                        response = stub.EncodeFace(request)
+                        encoding = np.array(response.encoding, dtype=np.float32)
+                        name = compare_with_known_faces(known_faces, encoding)
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                        cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+                    except grpc.RpcError:
+                        pass
 
-                if faces:
-                    for face_coords in faces:
-                        x1, y1, x2, y2 = map(int, face_coords)
-                        face_image = frame[y1:y2, x1:x2]
-                        face_image = cv2.resize(face_image, (160, 160))
-                        _, face_encoded = cv2.imencode('.jpg', face_image)
-                        try:
-                            face_response = await client.post(ENCODING_URL, files={'file': face_encoded.tobytes()})
-                            face_response.raise_for_status()
-                            face_encoding = face_response.json().get("encoding")
-                            print("Face encoding retrieved.")
-                        except Exception as e:
-                            print(f"Face encoding error: {e}")
-                            continue
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+    finally:
+        video_capture.release()
 
-                        try:
-                            print("Fetching known faces from database")
-                            known_faces_response = await client.get(KNOWN_FACES_URL)
-                            known_faces_response.raise_for_status()
-                            known_faces = known_faces_response.json().get("known_faces", [])
-                        except Exception as e:
-                            print(f"Known faces retrieval error: {e}")
-                            continue
 
-                        try:
-                            print("Attempting face recognition")
-                            known_encodings = [np.array(face["encoding"], dtype=np.float32) for face in known_faces]
-                            known_names = [face["name"] for face in known_faces]
-                            known_encodings = [enc.tolist() for enc in known_encodings]
+def load_known_faces():
+    import requests
+    response = requests.get("http://localhost:8000/get_known_faces/")
+    if response.status_code == 200:
+        return response.json()
+    return []
 
-                            recognition_resp = await client.post(
-                                RECOGNITION_URL,
-                                json={
-                                    "encoding": face_encoding,
-                                    "known_encodings": known_encodings,
-                                    "known_names": known_names
-                                }
-                            )
-                            recognition_resp.raise_for_status()
-                            response_data = recognition_resp.json()
-                            matches = response_data.get("matches", [])
-                            matched_names = response_data.get("matched_names", [])
-                            if True in matches:
-                                match_index = matches.index(True)
-                                name = matched_names[match_index]
-                                print(f"Face recognized: {name}")
-                            else:
-                                name = "Unknown"
 
-                            # Отрисовка результата на кадре
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            cv2.putText(frame, name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-                        except Exception as e:
-                            print(f"Face recognition error: {e}")
-                            continue
+def compare_with_known_faces(known_faces, face_encoding, tolerance=0.35):
+    for face in known_faces:
+        encoding = np.array(face["encoding"], dtype=np.float32)
+        distance = np.linalg.norm(encoding - face_encoding)
+        if distance <= tolerance:
+            return face["name"]
+    return "Unknown"
 
-                try:
-                    ret, buffer = cv2.imencode('.jpg', frame)
-                    frame = buffer.tobytes()
-                    yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-                except Exception as e:
-                    print(f"Frame encoding error: {e}")
 
-        finally:
-            video_capture.release()
+@app.get("/video_feed")
+def video_feed():
+    return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")

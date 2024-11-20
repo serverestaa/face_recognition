@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package facerecognition;
+
+service FaceRecognition {
+  rpc EncodeFace (EncodeFaceRequest) returns (EncodeFaceResponse);
+}
+
+message EncodeFaceRequest {
+  bytes image = 1;
+}
+
+message EncodeFaceResponse {
+  repeated float encoding = 1;
+}
