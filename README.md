@@ -1,7 +1,7 @@
 
-# Face Recognition and Streaming System
+# Face Verification
 
-This project implements a face recognition system using a combination of machine learning, image processing, and gRPC services. The system provides functionalities to train models, detect faces, encode them, and stream video with real-time face recognition.
+This project implements a face verification system using a combination of machine learning, image processing, and gRPC services. The system provides functionalities to train models, detect faces, encode them, and stream video with real-time face recognition.
 
 ---
 
@@ -44,11 +44,13 @@ This project implements a face recognition system using a combination of machine
 
 ## Dataset used for training and validation:
 
-The LFW dataset contains 13,233 images of faces collected from the web. This dataset consists of the 5749 identities with 1680 people with two or more images. https://www.kaggle.com/datasets/jessicali9530/lfw-dataset
+The LFW dataset contains 13,233 images of faces collected from the web. This dataset consists of the 5749 identities with 1680 people with two or more images. 
+https://www.kaggle.com/datasets/jessicali9530/lfw-dataset
 
 Dataset used during inference:
 
-12 classes with 6-9 images which gives in total of 94 images. https://drive.google.com/drive/folders/17cku0kxf-tmfZyLz3HGCKFQ4mbn61Xwr?usp=sharing
+12 classes with 6-9 images which gives in total of 94 images. 
+https://drive.google.com/drive/folders/17cku0kxf-tmfZyLz3HGCKFQ4mbn61Xwr?usp=sharing
 
 ---
 
