@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS faces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    face_encoding BLOB NOT NULL
+);
