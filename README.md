@@ -107,7 +107,7 @@ https://drive.google.com/drive/folders/17cku0kxf-tmfZyLz3HGCKFQ4mbn61Xwr?usp=sha
 
 4. **Train the Model**:
    ```bash
-   python model_training.py
+   python main.py
    ```
 
 ---
