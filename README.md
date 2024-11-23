@@ -1,7 +1,11 @@
-
 # Face Verification
 
-This project implements a face verification system using a combination of machine learning, image processing, and gRPC services. The system provides functionalities to train models, detect faces, encode them, and stream video with real-time face recognition.
+This project implements a face verification system using a combination of machine learning, image processing, and gRPC services. The system provides functionalities to train models, detect faces, encode them, and stream video with real-time face verification.
+
+**Paper Report** : [Baisbay_Shildebayev.pdf](https://github.com/user-attachments/files/17879113/Baisbay_Shildebayev.pdf)
+
+
+https://github.com/user-attachments/assets/e5a0dcc7-41d5-4bd2-b81a-7bf3f493cdc9
 
 ---
 
